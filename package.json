@@ -1,0 +1,31 @@
+{
+  "name": "sysscope",
+  "version": "1.0.0",
+  "description": "SysScope — a JavaScript (Node.js) tool that gathers and displays system information & environment variables, and performs CRUD operations on code files. Built for Thunder Hackathon 3.0.",
+  "type": "commonjs",
+  "main": "index.js",
+  "bin": {
+    "sysscope": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "info": "node index.js info",
+    "menu": "node index.js menu",
+    "live": "node index.js live",
+    "json": "node index.js info --json"
+  },
+  "keywords": [
+    "system-information",
+    "environment-variables",
+    "cli",
+    "crud",
+    "nodejs",
+    "diagnostics"
+  ],
+  "author": "mohmmad",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {}
+}
