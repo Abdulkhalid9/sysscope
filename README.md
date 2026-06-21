@@ -2,13 +2,13 @@
 
 > A JavaScript (Node.js) tool that **gathers and displays system information &
 > environment variables** and performs **CRUD operations on code/text files**.
-> Built for **Thunder Hackathon 3.0 — "Create a virus in JS."**
+> Built for **Thunder Hackathon 3.0 - "Create a virus in JS."**
 
 Despite the playful hackathon title, SysScope is a **benign system-diagnostics
 utility**. It only *reads* information about the machine it runs on and performs
-*file operations you explicitly ask for* inside a sandbox. It contains no
-self-replication, no networking, and no persistence — nothing that an actual
-virus would do.
+*file operations you explicitly ask for*. CRUD stays inside a sandboxed project
+folder; it contains no self-replication, no networking, and no persistence -
+nothing that an actual virus would do.
 
 ---
 
@@ -18,10 +18,10 @@ The project is split into small files that each do **one** job, and every file
 opens with a plain-English `PLAIN-ENGLISH SUMMARY` comment explaining what it
 does. If you're reading the source for the first time, follow this path:
 
-| # | File | What it does | Start here if you want to understand… |
+| # | File | What it does | Start here if you want to understand... |
 |---|---|---|---|
 | 1 | `index.js` | The "front desk." Reads your command and calls the right function. | how the program starts and flows |
-| 2 | `src/sysinfo.js` | Gathers facts about the computer (OS, CPU, memory…). | where the system info comes from |
+| 2 | `src/sysinfo.js` | Gathers facts about the computer (OS, CPU, memory...). | where the system info comes from |
 | 3 | `src/env.js` | Reads environment variables, hiding secrets. | the safety / redaction idea |
 | 4 | `src/crud.js` | Create / read / update / delete files, sandboxed. | the file operations |
 | 5 | `src/output.js` | Turns plain data into coloured tables. | how the pretty output is made |
@@ -30,7 +30,7 @@ does. If you're reading the source for the first time, follow this path:
 
 **One idea to remember:** `index.js` only *routes and prints*. The real work
 lives in the `src/` files, and both the command-line and the menu call the
-**same** functions — so behaviour can never drift between them.
+**same** functions - so behaviour can never drift between them.
 
 ---
 
@@ -53,9 +53,9 @@ lives in the `src/` files, and both the command-line and the menu call the
 it would turn a diagnostic tool into a data-leak. SysScope therefore:
 
 1. Shows only a **curated list** of common, non-sensitive variables
-   (`USER`, `HOME`, `PATH`, `SHELL`, `LANG`, `NODE_ENV`, …).
+   (`USER`, `HOME`, `PATH`, `SHELL`, `LANG`, `NODE_ENV`, ...).
 2. **Redacts** any variable whose name looks secret-ish
-   (`*SECRET*`, `*TOKEN*`, `*PASSWORD*`, `*API_KEY*`, `*CREDENTIAL*`, …),
+   (`*SECRET*`, `*TOKEN*`, `*PASSWORD*`, `*API_KEY*`, `*CREDENTIAL*`, ...),
    even if you ask for it explicitly.
 3. Reports **missing** variables as `N/A` instead of crashing.
 
@@ -63,7 +63,7 @@ it would turn a diagnostic tool into a data-leak. SysScope therefore:
 
 ## Installation & requirements
 
-- **Node.js ≥ 14** (developed and tested on Node 22). No `npm install` needed —
+- **Node.js ≥ 14** (developed and tested on Node 22). No `npm install` needed -
   **zero external dependencies**; everything uses Node's built-in modules
   (`os`, `process`, `path`, `fs`, `readline`).
 
@@ -85,12 +85,12 @@ node index.js [command] [options]
 | Command | Description |
 |---|---|
 | `info` | Full system information report (this is the default) |
+| `menu` | Launch the interactive number-driven menu |
 | `env` | Show the selected environment variables |
 | `network` | List network interfaces |
 | `live` | Live, auto-refreshing CPU / memory dashboard (Ctrl-C to exit) |
 | `save` | Write the full report to a timestamped `sysscope-report-*.json` |
-| `menu` | Launch the interactive number-driven menu |
-| `crud <op> …` | File operations: `create` / `read` / `update` / `delete` / `list` |
+| `crud <op> ...` | File operations: `create` / `read` / `update` / `delete` / `list` |
 | `help` | Show built-in help |
 
 ### Global options
@@ -117,67 +117,66 @@ node index.js crud list   demo
 ## Code flow & strategy
 
 ```
-                       ┌─────────────┐
-   user runs           │  index.js   │   parseArgs() → { command, flags }
-   `node index.js …` ─▶│  (router)   │
-                       └──────┬──────┘
-            ┌─────────────────┼───────────────────┬─────────────┐
-            ▼                 ▼                   ▼             ▼
-     ┌────────────┐    ┌────────────┐      ┌────────────┐ ┌──────────┐
-     │ sysinfo.js │    │   env.js   │      │  crud.js   │ │ live.js  │
-     │ collect()  │    │ select()   │      │ create/    │ │ start()  │
-     │ network()  │    │ summary()  │      │ read/update│ │ dashboard│
-     └─────┬──────┘    └─────┬──────┘      │ delete/list│ └────┬─────┘
-           │                 │             └─────┬──────┘      │
-           └────────┬────────┴───────────────────┴─────────────┘
-                    ▼
-              ┌────────────┐         menu.js drives the same handlers
-              │ output.js  │◀──────  interactively (readline)
-              │ tables /   │
-              │ colours /  │
-              │ JSON       │
-              └────────────┘
+                 ┌────────────────────┐
+                 │  index.js (router) │   parseArgs() -> { command, flags }
+                 └──────────┴─────────┘
+                            │
+       ┌─────────────┬──────┴──────┬─────────────┐
+       ▼             ▼             ▼             ▼
+┌────────────┐┌────────────┐┌────────────┐┌────────────┐
+│ sysinfo.js ││ env.js     ││ crud.js    ││ live.js    │
+│ collect()  ││ select()   ││ CRUD ops   ││ start()    │
+│ network()  ││ summary()  ││ + list     ││ dashboard  │
+└────────────┘└────────────┘└─────┬──────┘└────────────┘
+                                  │
+                                  ▼
+                          ┌───────┴──────┐
+                          │ output.js    │  menu.js drives the same
+                          │ tables /     │  handlers interactively
+                          │ colours /    │  (readline)
+                          │ JSON         │
+                          └──────────────┘
 ```
 
 **Separation of concerns.** Each capability lives in its own module under
 `src/`, and `index.js` is a thin router that wires them to either CLI flags or
-the interactive menu — both paths call the *exact same* handler functions, so
+the interactive menu - both paths call the *exact same* handler functions, so
 behaviour can't drift between them.
 
-1. **`index.js` — router & presentation glue.**
+1. **`index.js` - router & presentation glue.**
    A tiny dependency-free argument parser turns `process.argv` into a command +
    flags object, then a `switch` dispatches to the right renderer. A top-level
    `.catch()` is the global error boundary so the tool never dies with a raw
    stack trace.
 
-2. **`src/sysinfo.js` — data gathering.**
+2. **`src/sysinfo.js` - data gathering.**
    Every field is wrapped in a `safe(fn)` helper that returns `null` if a lookup
    throws or is empty. This is the backbone of *"handle missing values
    gracefully"*: one unusual platform can't take down the whole report. Raw
    numbers (bytes, seconds, platform codes) are also converted to friendly forms.
 
-3. **`src/env.js` — environment variables.**
-   Allow-list + secret-redaction + missing→`null`, as described above.
+3. **`src/env.js` - environment variables.**
+   Allow-list + secret-redaction + missing->`null`, as described above.
 
-4. **`src/crud.js` — file operations, defensively.**
+4. **`src/crud.js` - file operations, defensively.**
    - **Sandbox:** `resolveSafe()` resolves every path against a base directory
      and rejects anything that escapes it, blocking path-traversal
      (`../../etc/passwd`).
    - **Backups:** `update` and `delete` copy the file to a timestamped `.bak`
-     *before* changing it — no operation is irreversible.
-   - **Structured results:** every function returns `{ ok, action, … }` so
+     *before* changing it - no operation is irreversible.
+   - **Structured results:** every function returns `{ ok, action, ... }` so
      callers can render success or failure consistently (and as JSON).
 
-5. **`src/live.js` — live dashboard.**
+5. **`src/live.js` - live dashboard.**
    Samples `os.cpus()` twice and compares idle-vs-total deltas to compute real
    CPU usage, redrawing in place with ANSI cursor control once per second.
 
-6. **`src/output.js` — presentation.**
+6. **`src/output.js` - presentation.**
    Hand-rolled ANSI colours and table rendering (no third-party TUI lib).
    Colour auto-disables when output isn't a TTY, when `NO_COLOR` is set, or with
    `--no-color`. `null`/empty values render as a dim `N/A`.
 
-7. **`src/menu.js` — interactive UI.**
+7. **`src/menu.js` - interactive UI.**
    A `readline`-based menu that reuses the handlers from `index.js`, including a
    CRUD sub-menu with a confirmation prompt before deletes.
 
@@ -185,8 +184,31 @@ behaviour can't drift between them.
 
 | Failure | How it's handled |
 |---|---|
-| A system lookup throws | `safe()` returns `null` → rendered as `N/A` |
+| A system lookup throws | `safe()` returns `null` -> rendered as `N/A` |
 | Missing env var | Reported as `null` / `N/A`, never throws |
-| Secret-looking env var | Redacted as `«redacted»` |
+| Secret-looking env var | Redacted as `[redacted]` |
 | Path escapes the sandbox | Rejected with a clear "Refused" message |
-| File not found
+| File not found / is a directory | Returns `{ ok: false, message }`, printed as a warning |
+| Any uncaught error | Caught by the top-level boundary, printed cleanly, exit code 1 |
+
+---
+
+## Project structure
+
+```
+sysscope/
+├── index.js          # CLI entry point & command router
+├── package.json      # metadata + npm scripts (no dependencies)
+├── README.md         # this file
+└── src/
+    ├── sysinfo.js    # gather OS / CPU / host / runtime / memory / network
+    ├── env.js        # curated, redaction-safe environment variables
+    ├── crud.js       # sandboxed create/read/update/delete/list
+    ├── live.js       # live CPU/memory dashboard
+    ├── menu.js       # interactive readline menu
+    └── output.js     # colours, tables, JSON, title
+```
+
+## License
+
+MIT

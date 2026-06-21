@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Backups created by SysScope's update/delete operations
+*.bak
+
+# Reports produced by `node index.js save`
+sysscope-report-*.json
+
+# AI-assistant / editor tool folders
+.agents/
+.codex/
+.cursor/
+.aider*
+.vscode/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

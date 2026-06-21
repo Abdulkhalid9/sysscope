@@ -1,44 +1,21 @@
 "use strict";
 
-/* =============================================================================
- * crud.js  —  "Create, Read, Update, Delete files (safely)"
- * =============================================================================
- *
- * PLAIN-ENGLISH SUMMARY
- *   CRUD is just the four basic things you can do with a file:
- *     Create  - make a new file
- *     Read    - look at a file's contents
- *     Update  - change a file
- *     Delete  - remove a file
- *   ...plus List, to see what's in a folder.
- *
- *   Because messing with files is the genuinely "dangerous" part of the brief,
- *   this file is written defensively. Three safety ideas run through it:
- *
- *     1. SANDBOX  - every file path must stay inside one base folder (your
- *        current folder by default). Sneaky paths like "../../etc/passwd" that
- *        try to climb OUT are rejected. (see resolveSafe)
- *     2. BACKUPS  - before Update or Delete changes anything, we first copy the
- *        file to a timestamped ".bak" file, so you can always undo.
- *     3. CLEAR RESULTS - every function returns a small object describing what
- *        happened ({ ok: true/false, ... }) instead of failing silently.
- * ===========================================================================*/
+// crud.js - create / read / update / delete files (+ list).
+// This is the part that actually changes files, so it's the careful part:
+//   - paths are confined to a base folder (no climbing out with ../../)
+//   - update/delete write a .bak copy first, so nothing is unrecoverable
+//   - every function returns { ok, ... } instead of throwing/failing silently
 
-const fs = require("fs");     // built-in: read/write files
-const path = require("path"); // built-in: work with file paths
+const fs = require("fs");
+const path = require("path");
 
-/**
- * resolveSafe(target, baseDir) - turn a path the user typed into a full path,
- * and make sure it stays INSIDE baseDir. Throws if it tries to escape.
- * This is the guard that blocks "path traversal" attacks like "../../secret".
- */
+// resolve a path against baseDir and make sure it doesn't escape it.
+// blocks path-traversal like "../../etc/passwd".
 function resolveSafe(target, baseDir) {
-  const base = path.resolve(baseDir);          // full path of the sandbox
-  const resolved = path.resolve(base, target); // full path of the target
-  const rel = path.relative(base, resolved);   // route from base -> target
+  const base = path.resolve(baseDir);
+  const resolved = path.resolve(base, target);
+  const rel = path.relative(base, resolved);
 
-  // If the route starts with ".." (or is absolute), the target is OUTSIDE the
-  // sandbox, so we refuse.
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
     throw new Error(
       'Refused: "' + target + '" resolves outside the sandbox (' + base + ")."
@@ -47,12 +24,11 @@ function resolveSafe(target, baseDir) {
   return resolved;
 }
 
-/** A filesystem-safe timestamp like 2026-06-20T12-30-00-000Z for backup names. */
+// filesystem-safe timestamp for .bak names
 function timestamp() {
   return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
-/** CREATE - write a brand-new file. Won't overwrite unless force=true. */
 function create(target, content, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
@@ -63,14 +39,12 @@ function create(target, content, options) {
     return { ok: false, action: "create", file, message: "File already exists (use force to overwrite)." };
   }
 
-  // Make sure the folder exists first (e.g. "demo/hello.js" needs "demo/").
-  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.mkdirSync(path.dirname(file), { recursive: true }); // make parent dirs if needed
   fs.writeFileSync(file, content || "", "utf8");
 
   return { ok: true, action: "create", file, bytes: Buffer.byteLength(content || "") };
 }
 
-/** READ - return a file's text plus a few facts about it (size, lines, date). */
 function read(target, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
@@ -90,16 +64,13 @@ function read(target, options) {
     action: "read",
     file,
     bytes: stat.size,
-    lines: content.split(/\r\n|\r|\n/).length, // count line breaks
+    lines: content.split(/\r\n|\r|\n/).length,
     modified: stat.mtime.toISOString(),
     content,
   };
 }
 
-/**
- * UPDATE - change an existing file. A backup is made first.
- * mode: "overwrite" (default) | "append" | "prepend"
- */
+// mode: overwrite (default) | append | prepend
 function update(target, content, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
@@ -110,8 +81,7 @@ function update(target, content, options) {
     return { ok: false, action: "update", file, message: "File not found (use create instead)." };
   }
 
-  // Safety: copy the current file to a .bak before touching it.
-  const backup = file + "." + timestamp() + ".bak";
+  const backup = file + "." + timestamp() + ".bak"; // back up before we touch it
   fs.copyFileSync(file, backup);
 
   let final = content;
@@ -122,7 +92,6 @@ function update(target, content, options) {
   return { ok: true, action: "update", file, mode, backup, bytes: Buffer.byteLength(final) };
 }
 
-/** DELETE - remove a file. A backup is made first, so it's recoverable. */
 function remove(target, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
@@ -137,12 +106,12 @@ function remove(target, options) {
   }
 
   const backup = file + "." + timestamp() + ".bak";
-  fs.copyFileSync(file, backup); // keep a copy...
-  fs.unlinkSync(file);           // ...then delete the original
+  fs.copyFileSync(file, backup); // keep a copy, then delete
+  fs.unlinkSync(file);
   return { ok: true, action: "delete", file, backup };
 }
 
-/** LIST - show the files/folders directly inside a directory, with sizes. */
+// one level of a directory, with file sizes
 function list(target, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
@@ -152,9 +121,8 @@ function list(target, options) {
     return { ok: false, action: "list", dir, message: "Directory not found." };
   }
 
-  const dirents = fs.readdirSync(dir, { withFileTypes: true });
   const entries = [];
-  for (const d of dirents) {
+  for (const d of fs.readdirSync(dir, { withFileTypes: true })) {
     let size = "N/A";
     try {
       if (d.isFile()) size = fs.statSync(path.join(dir, d.name)).size;

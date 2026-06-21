@@ -1,51 +1,27 @@
 #!/usr/bin/env node
 "use strict";
 
-/* =============================================================================
- * SysScope  —  index.js  (the starting point of the whole program)
- * =============================================================================
- * Thunder Hackathon 3.0 · "Create a product in JS"
- *
- * Don't worry about the scary title — this is a SAFE tool. It only LOOKS at
- * your computer (operating system, CPU, memory, Node version, environment
- * variables) and does file operations you ask for inside one folder. It does
- * not spread, hide, or connect to the internet.
- *
- * -----------------------------------------------------------------------------
- * NEW HERE? READ THE FILES IN THIS ORDER:
- *   1. index.js   (this file)  - the "front desk": reads your command and sends
- *                                you to the right place. Start here.
- *   2. src/sysinfo.js          - gathers facts about the computer.
- *   3. src/env.js              - reads environment variables, safely.
- *   4. src/crud.js             - create/read/update/delete files, safely.
- *   5. src/output.js           - turns data into pretty coloured tables.
- *   6. src/live.js             - the live updating dashboard.
- *   7. src/menu.js             - the interactive number menu.
- *
- * -----------------------------------------------------------------------------
- * HOW TO RUN:
- *   node index.js              -> full system report (the default)
- *   node index.js env          -> environment variables
- *   node index.js network      -> network interfaces
- *   node index.js live         -> live CPU/memory dashboard (Ctrl-C to quit)
- *   node index.js save         -> save the report to a JSON file
- *   node index.js menu         -> interactive menu
- *   node index.js help         -> list every command
- *
- *   Add --json to get raw JSON.  Add --no-color to turn off colours.
- *
- *   File operations:
- *     node index.js crud create <file> "<content>"
- *     node index.js crud read   <file>
- *     node index.js crud update <file> "<content>" --mode append
- *     node index.js crud delete <file>
- *     node index.js crud list   [folder]
- * ===========================================================================*/
+// SysScope - Thunder Hackathon 3.0
+// A small Node CLI that reports system info + environment variables and does
+// CRUD on files. Scary brief title, but it's a benign diagnostics tool: it only
+// reads info about the machine and edits files you explicitly point it at.
+//
+// Layout:
+//   index.js       - reads the command and routes it (start here)
+//   src/sysinfo.js - gathers OS / CPU / memory / runtime facts
+//   src/env.js     - environment variables, with secrets hidden
+//   src/crud.js    - create / read / update / delete files
+//   src/output.js  - colours + tables
+//   src/live.js    - live CPU/memory dashboard
+//   src/menu.js    - interactive menu
+//
+// Run: node index.js [command]   (no command = full system report)
+// Commands: info | env | network | live | save | menu | crud | help
+// Flags: --json (raw JSON), --no-color
 
 const fs = require("fs");
 const path = require("path");
 
-// Pull in our own modules (the files in src/). Each one does one job.
 const sysinfo = require("./src/sysinfo");
 const env = require("./src/env");
 const crud = require("./src/crud");
@@ -53,28 +29,17 @@ const live = require("./src/live");
 const menu = require("./src/menu");
 const { c, header, keyValueTable, table, banner, log } = require("./src/output");
 
-/* -----------------------------------------------------------------------------
- * STEP 1: understand what the user typed.
- * ---------------------------------------------------------------------------*/
-
-/*
- * parseArgs turns the words typed after "node index.js" into something easy to
- * use. It separates plain words (the command and its targets) from --flags.
- *
- * Example:  node index.js crud update a.js "hi" --mode append
- *   becomes { _: ["crud","update","a.js","hi"], flags: { mode: "append" } }
- */
+// turn the words after "node index.js" into { _: [...], flags: {...} }
 function parseArgs(argv) {
   const args = { _: [], flags: {} };
   for (let i = 0; i < argv.length; i++) {
     const tok = argv[i];
     if (tok.startsWith("--")) {
-      const key = tok.slice(2);       // drop the leading "--"
+      const key = tok.slice(2);
       const next = argv[i + 1];
-      // "--mode append" -> flag has a value; "--json" alone -> flag is just true
       if (next !== undefined && !next.startsWith("--")) {
         args.flags[key] = next;
-        i++; // skip the value we just consumed
+        i++;
       } else {
         args.flags[key] = true;
       }
@@ -85,15 +50,9 @@ function parseArgs(argv) {
   return args;
 }
 
-const argv = parseArgs(process.argv.slice(2)); // slice(2) skips "node" and the script path
-const JSON_MODE = Boolean(argv.flags.json);    // did the user ask for JSON?
+const argv = parseArgs(process.argv.slice(2));
+const JSON_MODE = Boolean(argv.flags.json);
 
-/* -----------------------------------------------------------------------------
- * STEP 2: one function per command. Each gathers data, then prints it either as
- * pretty tables or (if --json) as raw JSON.
- * ---------------------------------------------------------------------------*/
-
-/** Print the full system information report. */
 function printInfo() {
   const data = sysinfo.collect();
   if (JSON_MODE) return console.log(JSON.stringify(data, null, 2));
@@ -165,7 +124,6 @@ function printInfo() {
   console.log(c.dim("\n  Generated at " + data.meta.generatedAt + "\n"));
 }
 
-/** Print the selected environment variables. */
 function printEnv() {
   const selected = env.select();
   const sum = env.summary();
@@ -176,13 +134,12 @@ function printEnv() {
   console.log(keyValueTable(selected));
   console.log(
     c.dim(
-      "\n  " + sum.totalVariables + " variables present · " +
+      "\n  " + sum.totalVariables + " variables present, " +
         sum.redactedCount + " secret-like names auto-redacted\n"
     )
   );
 }
 
-/** Print the list of network interfaces. */
 function printNetwork() {
   const rows = sysinfo.networkInterfaces();
   if (JSON_MODE) return console.log(JSON.stringify(rows, null, 2));
@@ -199,7 +156,6 @@ function printNetwork() {
   console.log("");
 }
 
-/** Gather everything and write it to a timestamped JSON file. */
 function saveReport() {
   const data = {
     system: sysinfo.collect(),
@@ -207,18 +163,13 @@ function saveReport() {
     network: sysinfo.networkInterfaces(),
   };
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const fileName = "sysscope-report-" + stamp + ".json";
-  const outPath = path.resolve(process.cwd(), fileName);
+  const outPath = path.resolve(process.cwd(), "sysscope-report-" + stamp + ".json");
   fs.writeFileSync(outPath, JSON.stringify(data, null, 2), "utf8");
   log.ok("Report saved to " + c.cyan(outPath));
   return outPath;
 }
 
-/*
- * runCrud — one place that performs any file operation. Both the command-line
- * ("crud" command) and the interactive menu call this, so file behaviour lives
- * in exactly one spot.
- */
+// single place all file operations go through (CLI and menu both call this)
 function runCrud({ op, target, content, mode }) {
   let result;
   switch (op) {
@@ -242,20 +193,17 @@ function runCrud({ op, target, content, mode }) {
       return;
   }
 
-  // In JSON mode, just print the raw result object.
   if (JSON_MODE) return console.log(JSON.stringify(result, null, 2));
 
-  // If the operation failed (file missing, etc.), show a friendly warning.
   if (!result.ok) {
     log.warn(result.action + ": " + result.message);
     return;
   }
 
-  // Otherwise, show a nice success message tailored to the operation.
   if (op === "read") {
     log.ok("Read " + c.cyan(result.file) + "  (" + result.bytes + " bytes, " + result.lines + " lines)");
-    console.log(c.gray("  ─── content ───────────────────────────"));
-    console.log(result.content.replace(/^/gm, "  ")); // indent every line by 2 spaces
+    console.log(c.gray("  --- content ---"));
+    console.log(result.content.replace(/^/gm, "  "));
     return;
   }
   if (op === "list") {
@@ -271,11 +219,10 @@ function runCrud({ op, target, content, mode }) {
     return;
   }
 
-  log.ok(result.action + " → " + c.cyan(result.file));
+  log.ok(result.action + " -> " + c.cyan(result.file));
   if (result.backup) log.info("Backup written: " + c.dim(result.backup));
 }
 
-/** Print the help screen. */
 function printHelp() {
   console.log(banner());
   console.log(
@@ -283,15 +230,15 @@ function printHelp() {
     "  node index.js [command] [options]\n\n" +
     c.bold("COMMANDS") + "\n" +
     "  " + c.green("info") + "            Full system information report (default)\n" +
+    "  " + c.green("menu") + "            Launch the interactive menu\n" +
     "  " + c.green("env") + "             Show selected environment variables\n" +
     "  " + c.green("network") + "         List network interfaces\n" +
     "  " + c.green("live") + "            Live CPU/memory dashboard (Ctrl-C to exit)\n" +
     "  " + c.green("save") + "            Save the full report to a timestamped JSON file\n" +
-    "  " + c.green("menu") + "            Launch the interactive menu\n" +
     "  " + c.green("crud <op> ...") + "   File ops: create | read | update | delete | list\n" +
     "  " + c.green("help") + "            Show this help\n\n" +
-    c.bold("GLOBAL OPTIONS") + "\n" +
-    "  " + c.yellow("--json") + "          Emit JSON instead of pretty tables\n" +
+    c.bold("OPTIONS") + "\n" +
+    "  " + c.yellow("--json") + "          Emit JSON instead of tables\n" +
     "  " + c.yellow("--no-color") + "      Disable colours\n\n" +
     c.bold("CRUD EXAMPLES") + "\n" +
     "  node index.js crud create hello.js \"console.log('hi')\"\n" +
@@ -302,13 +249,10 @@ function printHelp() {
   );
 }
 
-/* -----------------------------------------------------------------------------
- * STEP 3: the router. Look at the first word the user typed and call the right
- * function. The whole thing is wrapped in a try/catch (at the bottom) so that
- * no matter what goes wrong, the user sees a clean message — never a crash.
- * ---------------------------------------------------------------------------*/
+// look at the first word and call the matching function.
+// wrapped in a catch at the bottom so nothing ever dumps a raw stack trace.
 async function main() {
-  const command = argv._[0] || "info"; // no command typed? default to "info"
+  const command = argv._[0] || "info";
 
   switch (command) {
     case "info":
@@ -322,12 +266,10 @@ async function main() {
     case "live":
       return void live.start();
     case "crud": {
-      // For crud, the remaining words are: <op> <target> <content>
       const [, op, target, content] = argv._;
       return runCrud({ op, target, content, mode: argv.flags.mode });
     }
     case "menu":
-      // Hand the menu the same functions the command-line uses.
       return menu.run({
         info: () => printInfo(),
         env: () => printEnv(),
@@ -351,7 +293,6 @@ async function main() {
   }
 }
 
-// Start the program. If ANY error escapes, show it cleanly and exit with code 1.
 main().catch((err) => {
   log.error(err && err.message ? err.message : String(err));
   process.exitCode = 1;

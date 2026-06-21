@@ -1,43 +1,21 @@
 "use strict";
 
-/* =============================================================================
- * menu.js  —  "A simple number-driven menu"
- * =============================================================================
- *
- * PLAIN-ENGLISH SUMMARY
- *   Not everyone wants to memorise commands. This file shows a menu: you type a
- *   number, it runs the matching action. It does NOT contain any feature logic
- *   of its own — it just calls the same handler functions that the command-line
- *   uses (passed in as `actions`), so the two ways of using the tool always
- *   behave identically.
- *
- * HOW IT READS YOUR TYPING
- *   Node's built-in `readline` module asks a question and waits for an answer.
- *   We wrap it in a small `ask()` helper that returns a Promise, so we can use
- *   the easy-to-read `await ask(...)` style.
- * ===========================================================================*/
+// menu.js - the interactive number menu. It has no logic of its own; it just
+// calls the same handler functions the command line uses (passed in as actions),
+// so both ways of driving the tool behave the same.
 
 const readline = require("readline");
 const { c, log } = require("./output");
 
-/** Ask one question and resolve with the user's (trimmed) answer. */
+// ask one question, resolve with the trimmed answer
 function ask(rl, question) {
   return new Promise((resolve) => rl.question(question, (a) => resolve(a.trim())));
 }
 
-/**
- * run(actions) — show the main menu in a loop until the user chooses Exit.
- * `actions` is an object of callbacks supplied by index.js:
- *   { info, env, network, save, live, crud }
- */
 async function run(actions) {
-  // Open a readline interface connected to the keyboard (stdin) and screen.
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-  // Each menu item: [ keyToPress, label, functionToRun ].
+  // [ key, label, fn ]
   const items = [
     ["1", "System information report", actions.info],
     ["2", "Environment variables", actions.env],
@@ -50,7 +28,7 @@ async function run(actions) {
 
   let running = true;
   while (running) {
-    console.log(c.bold(c.cyan("\n  ── SysScope Menu ─────────────────────────")));
+    console.log(c.bold(c.cyan("\n  -- SysScope Menu -------------------------")));
     for (const [key, label] of items) {
       console.log("   " + c.green(key) + "  " + label);
     }
@@ -62,12 +40,8 @@ async function run(actions) {
       log.warn("Unknown option, try again.");
       continue;
     }
-    if (choice === "0") {
-      running = false;
-      break;
-    }
+    if (choice === "0") break;
 
-    // Run the chosen action; if it throws, show the error but keep the menu open.
     try {
       await item[2]();
     } catch (err) {
@@ -79,45 +53,37 @@ async function run(actions) {
   log.ok("Goodbye!");
 }
 
-/**
- * crudMenu() — a small sub-menu for file operations. Asks which operation, then
- * the details it needs, then calls actions.crud(...) which does the real work.
- */
+// sub-menu for file operations
 async function crudMenu(rl, actions) {
-  console.log(c.bold(c.cyan("\n  ── File CRUD ─────────────────────────────")));
+  console.log(c.bold(c.cyan("\n  -- File CRUD -----------------------------")));
   console.log(
     "   " + c.green("c") + " create   " + c.green("r") + " read   " +
       c.green("u") + " update   " + c.green("d") + " delete   " + c.green("l") + " list"
   );
   const op = (await ask(rl, c.yellow("\n  Operation: "))).toLowerCase();
 
-  // List just needs a folder name.
   if (op === "l") {
     const dir = (await ask(rl, "  Directory (default '.'): ")) || ".";
     return actions.crud({ op: "list", target: dir });
   }
 
-  // The others need a file path.
   if (op === "c" || op === "r" || op === "u" || op === "d") {
-    const target = await ask(rl, "  File path (relative to sandbox): ");
+    const target = await ask(rl, "  File path (relative to project folder): ");
     if (!target) return log.warn("No path given.");
 
     if (op === "r") return actions.crud({ op: "read", target });
 
     if (op === "d") {
-      // Deleting is destructive, so confirm first.
       const sure = await ask(rl, c.red('  Delete "' + target + '"? (y/N): '));
       if (sure.toLowerCase() !== "y") return log.info("Cancelled.");
       return actions.crud({ op: "delete", target });
     }
 
-    // create and update also need the content to write.
     const content = await ask(rl, "  Content: ");
     if (op === "c") return actions.crud({ op: "create", target, content });
     if (op === "u") {
       const mode =
-        (await ask(rl, "  Mode [overwrite/append/prepend] (default overwrite): ")) ||
-        "overwrite";
+        (await ask(rl, "  Mode [overwrite/append/prepend] (default overwrite): ")) || "overwrite";
       return actions.crud({ op: "update", target, content, mode });
     }
   }
