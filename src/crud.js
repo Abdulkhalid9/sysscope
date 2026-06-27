@@ -2,26 +2,19 @@
 
 // crud.js - create / read / update / delete files (+ list).
 // This is the part that actually changes files, so it's the careful part:
-//   - paths are confined to a base folder (no climbing out with ../../)
+//   - paths can be relative, absolute, or point outside the project folder
 //   - update/delete write a .bak copy first, so nothing is unrecoverable
 //   - every function returns { ok, ... } instead of throwing/failing silently
 
 const fs = require("fs");
 const path = require("path");
 
-// resolve a path against baseDir and make sure it doesn't escape it.
-// blocks path-traversal like "../../etc/passwd".
-function resolveSafe(target, baseDir) {
+// Resolve a path against baseDir. Absolute paths stay absolute; relative paths
+// are resolved from the current working directory, including "../" segments.
+function resolveTarget(target, baseDir) {
+  if (!target) throw new Error("No path given.");
   const base = path.resolve(baseDir);
-  const resolved = path.resolve(base, target);
-  const rel = path.relative(base, resolved);
-
-  if (rel.startsWith("..") || path.isAbsolute(rel)) {
-    throw new Error(
-      'Refused: "' + target + '" resolves outside the sandbox (' + base + ")."
-    );
-  }
-  return resolved;
+  return path.resolve(base, target);
 }
 
 // filesystem-safe timestamp for .bak names
@@ -33,7 +26,7 @@ function create(target, content, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
   const force = Boolean(opts.force);
-  const file = resolveSafe(target, baseDir);
+  const file = resolveTarget(target, baseDir);
 
   if (fs.existsSync(file) && !force) {
     return { ok: false, action: "create", file, message: "File already exists (use force to overwrite)." };
@@ -48,7 +41,7 @@ function create(target, content, options) {
 function read(target, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
-  const file = resolveSafe(target, baseDir);
+  const file = resolveTarget(target, baseDir);
 
   if (!fs.existsSync(file)) {
     return { ok: false, action: "read", file, message: "File not found." };
@@ -75,7 +68,7 @@ function update(target, content, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
   const mode = opts.mode || "overwrite";
-  const file = resolveSafe(target, baseDir);
+  const file = resolveTarget(target, baseDir);
 
   if (!fs.existsSync(file)) {
     return { ok: false, action: "update", file, message: "File not found (use create instead)." };
@@ -95,7 +88,7 @@ function update(target, content, options) {
 function remove(target, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
-  const file = resolveSafe(target, baseDir);
+  const file = resolveTarget(target, baseDir);
 
   if (!fs.existsSync(file)) {
     return { ok: false, action: "delete", file, message: "File not found." };
@@ -115,7 +108,7 @@ function remove(target, options) {
 function list(target, options) {
   const opts = options || {};
   const baseDir = opts.baseDir || process.cwd();
-  const dir = resolveSafe(target || ".", baseDir);
+  const dir = resolveTarget(target || ".", baseDir);
 
   if (!fs.existsSync(dir)) {
     return { ok: false, action: "list", dir, message: "Directory not found." };
@@ -139,4 +132,4 @@ function list(target, options) {
   return { ok: true, action: "list", dir, entries };
 }
 
-module.exports = { create, read, update, remove, list, resolveSafe };
+module.exports = { create, read, update, remove, list, resolveTarget };

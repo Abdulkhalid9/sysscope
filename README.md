@@ -6,9 +6,12 @@
 
 Despite the playful hackathon title, SysScope is a **benign system-diagnostics
 utility**. It only *reads* information about the machine it runs on and performs
-*file operations you explicitly ask for*. CRUD stays inside a sandboxed project
-folder; it contains no self-replication, no networking, and no persistence -
-nothing that an actual virus would do.
+*file operations you explicitly ask for*. CRUD accepts relative paths, absolute
+paths, and paths outside the current project folder, so files such as `.env`
+files or SSH configuration/key files can be inspected wherever they actually
+live on the machine. SysScope displays data locally and can save a local JSON
+report; it does not send data to a remote server, self-replicate, or add
+persistence.
 
 ---
 
@@ -23,7 +26,7 @@ does. If you're reading the source for the first time, follow this path:
 | 1 | `index.js` | The "front desk." Reads your command and calls the right function. | how the program starts and flows |
 | 2 | `src/sysinfo.js` | Gathers facts about the computer (OS, CPU, memory...). | where the system info comes from |
 | 3 | `src/env.js` | Reads environment variables, hiding secrets. | the safety / redaction idea |
-| 4 | `src/crud.js` | Create / read / update / delete files, sandboxed. | the file operations |
+| 4 | `src/crud.js` | Create / read / update / delete files by explicit path. | the file operations |
 | 5 | `src/output.js` | Turns plain data into coloured tables. | how the pretty output is made |
 | 6 | `src/live.js` | The live, auto-refreshing dashboard. | the CPU-usage measuring trick |
 | 7 | `src/menu.js` | The interactive number menu. | the menu |
@@ -46,6 +49,9 @@ lives in the `src/` files, and both the command-line and the menu call the
 | **Memory & uptime** | total / used / free memory (bytes + human-readable), system uptime, process uptime |
 | **Network** | every interface: family, address, internal flag, MAC |
 | **Environment variables** | an allow-listed selection (see below), with secrets auto-redacted |
+
+SysScope only displays this information in the terminal or writes it to a local
+report when you run `save`; it has no remote-server upload step.
 
 ### Why an allow-list for environment variables?
 
@@ -105,12 +111,17 @@ node index.js [command] [options]
 ```bash
 node index.js crud create demo/hello.js "console.log('hi')"
 node index.js crud read   demo/hello.js
+node index.js crud list   ..
+node index.js crud read   ~/.ssh/config
+node index.js crud read   C:\Users\you\.ssh\config
 node index.js crud update demo/hello.js "// appended" --mode append
 node index.js crud delete demo/hello.js
 node index.js crud list   demo
 ```
 
 `--mode` for `update` accepts `overwrite` (default), `append`, or `prepend`.
+CRUD paths may be inside the project, outside the project through `..`, or fully
+absolute paths. On Windows, quote paths that contain spaces.
 
 ---
 
@@ -159,9 +170,9 @@ behaviour can't drift between them.
    Allow-list + secret-redaction + missing->`null`, as described above.
 
 4. **`src/crud.js` - file operations, defensively.**
-   - **Sandbox:** `resolveSafe()` resolves every path against a base directory
-     and rejects anything that escapes it, blocking path-traversal
-     (`../../etc/passwd`).
+   - **Path handling:** `resolveTarget()` resolves relative paths from the
+     current working directory and also accepts absolute paths, so CRUD is not
+     limited to the project folder.
    - **Backups:** `update` and `delete` copy the file to a timestamped `.bak`
      *before* changing it - no operation is irreversible.
    - **Structured results:** every function returns `{ ok, action, ... }` so
@@ -187,7 +198,7 @@ behaviour can't drift between them.
 | A system lookup throws | `safe()` returns `null` -> rendered as `N/A` |
 | Missing env var | Reported as `null` / `N/A`, never throws |
 | Secret-looking env var | Redacted as `[redacted]` |
-| Path escapes the sandbox | Rejected with a clear "Refused" message |
+| Relative/absolute path points outside the project | Allowed when explicitly provided |
 | File not found / is a directory | Returns `{ ok: false, message }`, printed as a warning |
 | Any uncaught error | Caught by the top-level boundary, printed cleanly, exit code 1 |
 
@@ -203,7 +214,7 @@ sysscope/
 └── src/
     ├── sysinfo.js    # gather OS / CPU / host / runtime / memory / network
     ├── env.js        # curated, redaction-safe environment variables
-    ├── crud.js       # sandboxed create/read/update/delete/list
+    ├── crud.js       # explicit-path create/read/update/delete/list
     ├── live.js       # live CPU/memory dashboard
     ├── menu.js       # interactive readline menu
     └── output.js     # colours, tables, JSON, title

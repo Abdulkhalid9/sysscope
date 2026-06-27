@@ -5,6 +5,8 @@
 // A small Node CLI that reports system info + environment variables and does
 // CRUD on files. Scary brief title, but it's a benign diagnostics tool: it only
 // reads info about the machine and edits files you explicitly point it at.
+// It displays data locally and can save a local JSON report; it does not send
+// data to any remote server.
 //
 // Layout:
 //   index.js       - reads the command and routes it (start here)
@@ -243,6 +245,8 @@ function printHelp() {
     c.bold("CRUD EXAMPLES") + "\n" +
     "  node index.js crud create hello.js \"console.log('hi')\"\n" +
     "  node index.js crud read   hello.js\n" +
+    "  node index.js crud list   ..\n" +
+    "  node index.js crud read   C:\\Users\\you\\.ssh\\config\n" +
     "  node index.js crud update hello.js \"// appended\" --mode append\n" +
     "  node index.js crud delete hello.js\n" +
     "  node index.js crud list   .\n"

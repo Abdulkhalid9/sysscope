@@ -68,7 +68,7 @@ async function crudMenu(rl, actions) {
   }
 
   if (op === "c" || op === "r" || op === "u" || op === "d") {
-    const target = await ask(rl, "  File path (relative to project folder): ");
+    const target = await ask(rl, "  File path (relative or absolute): ");
     if (!target) return log.warn("No path given.");
 
     if (op === "r") return actions.crud({ op: "read", target });
